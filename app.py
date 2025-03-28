@@ -10,8 +10,8 @@ app = Flask(__name__)
 # Načítanie datasetu
 df = pd.read_csv("ESCO_Kompetencie_Final.csv")
 
-# Automatické získanie stĺpcov zručností od 3. stĺpca (rovnako ako v appKNN2)
-skill_columns = df.columns[3:]
+# Vyberieme iba číselné stĺpce začínajúce na "k"
+skill_columns = [col for col in df.columns if col.startswith("k") and df[col].dtype in [np.int64, np.float64]]
 
 # Odstránenie irelevantných (nulových) kategórií
 non_zero_columns = df[skill_columns].loc[:, (df[skill_columns] != 0).any(axis=0)].columns
@@ -34,8 +34,8 @@ def index():
 def recommend():
     try:
         user_input = request.json["responses"]
-        if len(user_input) != len(df.columns) - 3:
-            return jsonify({"error": f"Očakáva sa {len(df.columns) - 3} hodnôt."}), 400
+        if len(user_input) != len(skill_columns):
+            return jsonify({"error": f"Očakáva sa {len(skill_columns)} hodnôt."}), 400
 
         user_vector = np.array([float(val) for val in user_input])
         weighted_vector = user_vector ** 1.5
