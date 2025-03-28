@@ -5,42 +5,43 @@ from flask import Flask, request, jsonify
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import MinMaxScaler
 
-# Inicializácia aplikácie
 app = Flask(__name__)
 
-# Načítanie dát a trénovanie modelu pri štarte servera
+# Načítanie datasetu
 df = pd.read_csv("ESCO_Kompetencie_Final.csv")
-skill_columns = [f'k{i}' for i in range(1, 26)]
 
-# Odstrániť stĺpce s nulovými hodnotami
+# Automatické získanie stĺpcov zručností od 3. stĺpca (rovnako ako v appKNN2)
+skill_columns = df.columns[3:]
+
+# Odstránenie irelevantných (nulových) kategórií
 non_zero_columns = df[skill_columns].loc[:, (df[skill_columns] != 0).any(axis=0)].columns
 skill_columns = non_zero_columns
 
-# Normalizácia dát
+# Normalizácia datasetu
 scaler = MinMaxScaler()
 df_scaled = df.copy()
 df_scaled[skill_columns] = scaler.fit_transform(df[skill_columns])
 
-# Tréning KNN modelu
+# Tréning modelu
 knn_model = NearestNeighbors(n_neighbors=5, metric='manhattan')
 knn_model.fit(df_scaled[skill_columns].values)
 
 @app.route('/')
 def index():
-    return "KNN odporúčací systém beží z CSV."
+    return "Optimalizovaný KNN model je pripravený."
 
 @app.route('/recommend', methods=['POST'])
 def recommend():
     try:
         user_input = request.json["responses"]
-        if len(user_input) != 25:
-            return jsonify({"error": "Očakáva sa presne 25 hodnôt."}), 400
+        if len(user_input) != len(df.columns) - 3:
+            return jsonify({"error": f"Očakáva sa {len(df.columns) - 3} hodnôt."}), 400
 
         user_vector = np.array([float(val) for val in user_input])
-        weighted_vector = np.where(user_vector == 0, 0, (user_vector / 5) ** 1.5)
+        weighted_vector = user_vector ** 1.5
 
-        input_df = pd.DataFrame([weighted_vector], columns=[f'k{i}' for i in range(1, 26)])
-        input_df = input_df[skill_columns]
+        # Normalizuj rovnako ako dataset
+        input_df = pd.DataFrame([weighted_vector], columns=skill_columns)
         input_scaled = scaler.transform(input_df)
 
         distances, indices = knn_model.kneighbors(input_scaled)
