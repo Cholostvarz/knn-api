@@ -12,10 +12,10 @@ app = Flask(__name__)
 # Pripojenie k MySQL databáze
 def load_data_from_db():
     conn = pymysql.connect(
-        host='localhost',
-        user='root',
-        password='',
-        database='tvoja_databaza',
+        host='sql6.webzdarma.cz',
+        user='zamestnaniee2288',
+        password='6a6S&*Auk%)14gj(pyC,',
+        database='zamestnaniee2288',
         charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor
     )
