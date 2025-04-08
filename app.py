@@ -1,38 +1,55 @@
-
+import numpy as np
 import pandas as pd
 from flask import Flask, request, jsonify
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import MinMaxScaler
 
 app = Flask(__name__)
 
-# Načítanie dát
+# Načítanie datasetu
 df = pd.read_csv("ESCO_Kompetencie_Final.csv")
-skill_columns = [f"k{i}" for i in range(1, 26)]
 
-# Normalizácia vstupných dát
+# Vyberieme iba číselné stĺpce začínajúce na "k"
+skill_columns = [col for col in df.columns if col.startswith("k") and df[col].dtype in [np.int64, np.float64]]
+
+# Odstránenie irelevantných (nulových) kategórií
+non_zero_columns = df[skill_columns].loc[:, (df[skill_columns] != 0).any(axis=0)].columns
+skill_columns = non_zero_columns
+
+# Normalizácia datasetu
 scaler = MinMaxScaler()
 df_scaled = df.copy()
 df_scaled[skill_columns] = scaler.fit_transform(df[skill_columns])
-model = NearestNeighbors(n_neighbors=5, metric="manhattan")
-model.fit(df_scaled[skill_columns])
 
-@app.route("/")
-def home():
-    return "Odporúčací systém API"
+# Tréning modelu
+knn_model = NearestNeighbors(n_neighbors=5, metric='manhattan')
+knn_model.fit(df_scaled[skill_columns].values)
 
-@app.route("/recommend", methods=["POST"])
+@app.route('/')
+def index():
+    return "Optimalizovaný KNN model je pripravený."
+
+@app.route('/recommend', methods=['POST'])
 def recommend():
-    data = request.get_json()
-    responses = data.get("responses")
-    if not responses or len(responses) != 25:
-        return jsonify({"error": "Invalid input"}), 400
+    try:
+        user_input = request.json["responses"]
+        if len(user_input) != len(skill_columns):
+            return jsonify({"error": f"Očakáva sa {len(skill_columns)} hodnôt."}), 400
 
-    input_scaled = scaler.transform([responses])
-    distances, indices = model.kneighbors(input_scaled)
+        user_vector = np.array([float(val) for val in user_input])
+        weighted_vector = user_vector ** 1.5
 
-    results = df.iloc[indices[0]][["ID_zam", "Zamestnanie"]].to_dict(orient="records")
-    return jsonify(results)
+        # Normalizuj rovnako ako dataset
+        input_df = pd.DataFrame([weighted_vector], columns=skill_columns)
+        input_scaled = scaler.transform(input_df)
+
+        distances, indices = knn_model.kneighbors(input_scaled)
+
+        # Vraciame aj ID_zam spolu so Zamestnanie
+        result = df.iloc[indices[0]][["ID_zam", "Zamestnanie"]].to_dict(orient="records")
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5003)
