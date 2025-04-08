@@ -7,7 +7,7 @@ from sklearn.neighbors import NearestNeighbors
 app = Flask(__name__)
 
 # Načítanie dát
-df = pd.read_csv("ESCO_Agregacia_Kompetencie.csv")
+df = pd.read_csv("ESCO_Kompetencie_Final.csv")
 skill_columns = [f"k{i}" for i in range(1, 26)]
 
 # Normalizácia vstupných dát
